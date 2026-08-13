@@ -1,0 +1,12 @@
+[build]
+target = "xtensa-esp32-none-elf"
+
+[unstable]
+build-std = ["core", "alloc", "panic_abort"]
+
+[target.xtensa-esp32-none-elf]
+linker = "xtensa-esp32-elf-gcc"
+rustflags = [
+  "-C", "link-arg=-nostartfiles",
+  "-C", "link-arg=-Wl,--no-warn-rwx-segments",
+]

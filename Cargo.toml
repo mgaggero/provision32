@@ -1,0 +1,61 @@
+[package]
+name    = "provision32"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Configurable ESP32 WiFi captive-portal provisioning library (i18n, custom AP name)"
+authors = ["SmileSky <mzdk100@foxmail.com>"]
+repository = "https://github.com/mzdk100/provision32.git"
+license = "Apache-2.0"
+readme = "README.md"
+
+
+
+[lib]
+name = "provision32"
+path = "src/lib.rs"
+
+[features]
+default = ["i18n-zh", "i18n-en"]
+# Include the Chinese portal/pending page strings.
+i18n-zh = []
+# Include the English portal/pending page strings.
+i18n-en = []
+esp32 = [
+    "esp-alloc/esp32",
+    "esp-backtrace/esp32",
+    "esp-bootloader-esp-idf/esp32",
+    "esp-hal/esp32",
+    "esp-rtos/esp32",
+    "esp-radio/esp32",
+    "esp-storage/esp32",
+]
+
+[dependencies]
+edge-dhcp = "0.8"
+edge-nal = "0.7"
+edge-nal-embassy = "0.9"
+embassy-executor = "0.10"
+embassy-sync = "0.8"
+embassy-net = { version = "0.9", features = ["dhcpv4", "medium-ethernet", "tcp", "udp"] }
+embassy-time = "0.5"
+embedded-io-async = "0.7"
+embedded-storage = "0.3"
+heapless = "0.9"
+log = "0.4"
+static_cell = "2.1"
+
+esp-alloc = { version = "0.10", features = ["esp32"] }
+esp-backtrace = { version = "0.19", features = ["esp32", "panic-handler", "println"] }
+esp-bootloader-esp-idf = { version = "0.5", features = ["esp32"] }
+esp-hal = { version = "1.1", features = ["esp32", "unstable", "rt", "log-04"] }
+esp-println = { version = "0.17", features = ["esp32", "log-04"] }
+esp-rtos = { version = "0.3", features = ["esp32", "esp-radio", "embassy", "log-04"] }
+esp-radio = { version = "0.18", features = ["esp32", "log-04", "wifi"] }
+esp-storage = { version = "0.5", features = ["esp32"] }
+
+[profile.release]
+debug            = false
+debug-assertions = false
+lto              = "fat"
+codegen-units    = 1
