@@ -48,7 +48,6 @@ use {
     embassy_time::{with_timeout, Duration, Timer},
     embedded_io_async::Write,
     embedded_storage::{ReadStorage, Storage},
-    esp_alloc as _, esp_backtrace as _,
     esp_hal::rng::Rng,
     esp_radio::wifi::{
         ap::AccessPointConfig, sta::StationConfig, Config, ControllerConfig, Interface,

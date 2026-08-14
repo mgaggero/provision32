@@ -1,8 +1,9 @@
 [package]
 name    = "provision32"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
-publish = false
+keywords = ["esp32", "wifi", "provisioning", "captive-portal", "embassy"]
+categories = ["embedded", "hardware-support", "no-std"]
 description = "Configurable ESP32 WiFi captive-portal provisioning library (i18n, custom AP name)"
 authors = ["SmileSky <mzdk100@foxmail.com>"]
 repository = "https://github.com/mzdk100/provision32.git"
@@ -22,11 +23,7 @@ i18n-zh = []
 # Include the English portal/pending page strings.
 i18n-en = []
 esp32 = [
-    "esp-alloc/esp32",
-    "esp-backtrace/esp32",
-    "esp-bootloader-esp-idf/esp32",
     "esp-hal/esp32",
-    "esp-rtos/esp32",
     "esp-radio/esp32",
     "esp-storage/esp32",
 ]
@@ -45,17 +42,33 @@ heapless = "0.9"
 log = "0.4"
 static_cell = "2.1"
 
+esp-hal = { version = "1.1", features = ["esp32", "unstable", "rt", "log-04"] }
+esp-println = { version = "0.17", features = ["esp32", "log-04"] }
+esp-radio = { version = "0.18", features = ["esp32", "log-04", "wifi"] }
+esp-storage = { version = "0.5", features = ["esp32"] }
+
+# Hardware/board crates required only by the example firmware, not by the
+# library itself. Kept in dev-dependencies so the published crate does not
+# force these ESP32-only deps on consumers.
+[dev-dependencies]
 esp-alloc = { version = "0.10", features = ["esp32"] }
 esp-backtrace = { version = "0.19", features = ["esp32", "panic-handler", "println"] }
 esp-bootloader-esp-idf = { version = "0.5", features = ["esp32"] }
-esp-hal = { version = "1.1", features = ["esp32", "unstable", "rt", "log-04"] }
-esp-println = { version = "0.17", features = ["esp32", "log-04"] }
 esp-rtos = { version = "0.3", features = ["esp32", "esp-radio", "embassy", "log-04"] }
-esp-radio = { version = "0.18", features = ["esp32", "log-04", "wifi"] }
-esp-storage = { version = "0.5", features = ["esp32"] }
 
 [profile.release]
 debug            = false
 debug-assertions = false
 lto              = "fat"
 codegen-units    = 1
+
+# `cargo publish` verifies the package with the dev profile (opt-level = 0),
+# but esp-storage refuses to build without optimization. Override opt-level
+# for the ESP32-only crates during dev so publish verification succeeds,
+# without forcing optimization on the rest of the workspace during debugging.
+[profile.dev.package.esp-storage]
+opt-level = 2
+[profile.dev.package.esp-hal]
+opt-level = 2
+[profile.dev.package.esp-radio]
+opt-level = 2
