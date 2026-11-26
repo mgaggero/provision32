@@ -444,6 +444,10 @@ pub async fn run(
             seed,
         );
         spawner.spawn(net_task(runner).expect("spawn net_task"));
+        // Keep the controller alive for the rest of the program: dropping a
+        // `WifiController` calls `wifi_deinit()`, which would shut the radio
+        // down right after this function returns.
+        let _controller = mk_static!(WifiController<'static>, controller);
         esp_println::println!("Device is now on target WiFi (no AP). Provisioning done.");
         set_state(ConnectionState::Connected {
             ssid: saved.as_ref().unwrap().0.clone(),
