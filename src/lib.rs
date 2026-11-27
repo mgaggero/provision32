@@ -620,6 +620,19 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     (0..=haystack.len() - needle.len()).find(|&i| haystack[i..].starts_with(needle))
 }
 
+/// Value of the `Content-Length` header in a raw request head, if present.
+fn content_length(head: &[u8]) -> Option<usize> {
+    let s = core::str::from_utf8(head).ok()?;
+    s.split("\r\n").skip(1).find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        if name.trim().eq_ignore_ascii_case("content-length") {
+            value.trim().parse().ok()
+        } else {
+            None
+        }
+    })
+}
+
 /// Parse a `application/x-www-form-urlencoded` body (`ssid=..&password=..`).
 pub fn parse_form(body: &[u8]) -> Option<(heapless::String<MAX_SSID>, heapless::String<MAX_PASSWORD>)> {
     let mut ssid = heapless::String::new();
@@ -860,9 +873,24 @@ async fn http_worker(stack: Stack<'static>, wifi_list: &'static SharedWifiList, 
             continue;
         }
 
+        // Some clients send the body in a later segment than the headers
+        // (e.g. `Expect: 100-continue`), so read until `Content-Length` is met.
+        let mut body_end = pos;
+        if method_post && let Some(len) = content_length(&buf[..body_start]) {
+            body_end = body_start.saturating_add(len);
+            while pos < body_end && pos < buf.len() {
+                match socket.read(&mut buf[pos..]).await {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => pos += n,
+                }
+            }
+        }
+
         if method_post {
-            let body = &buf[body_start..pos];
-            if let Some((ssid, password)) = parse_form(body) {
+            // Reject a body that is incomplete or larger than the buffer
+            // rather than parsing a truncated password.
+            let body = (pos >= body_end).then(|| &buf[body_start..body_end]);
+            if let Some((ssid, password)) = body.and_then(parse_form) {
                 esp_println::println!("Received SSID=`{ssid}` PASSWORD=`{password}`");
                 store_credentials(&cfg, ssid.as_str(), password.as_str());
 
