@@ -673,7 +673,7 @@ pub fn urldecode(input: &str) -> heapless::String<MAX_PASSWORD> {
 
 // ---------- Network services ----------
 
-/// DHCP server: hands out `192.168.4.x` and points DNS to the gateway.
+/// DHCP server: hands out addresses in the gateway's /24 and points DNS to the gateway.
 #[embassy_executor::task]
 async fn dhcp_server(stack: Stack<'static>, gw_ip: Ipv4Addr) {
     use edge_dhcp::{io::{self, DEFAULT_SERVER_PORT}, server::{Server, ServerOptions}};
@@ -697,7 +697,10 @@ async fn dhcp_server(stack: Stack<'static>, gw_ip: Ipv4Addr) {
     opts.dns = &dns;
     opts.subnet = Some(Ipv4Addr::new(255, 255, 255, 0));
     opts.lease_duration_secs = 3600;
-    opts.captive_url = Some("http://192.168.4.1/");
+    // RFC 8910 captive-portal URL; must point at the configured gateway.
+    let mut captive_url: heapless::String<24> = heapless::String::new();
+    let _ = core::fmt::write(&mut captive_url, format_args!("http://{gw_ip}/"));
+    opts.captive_url = Some(captive_url.as_str());
 
     loop {
         match io::server::run(&mut Server::<_, 64>::new_with_et(gw_ip), &opts, &mut socket, &mut buf).await {
@@ -902,9 +905,15 @@ async fn http_worker(stack: Stack<'static>, wifi_list: &'static SharedWifiList, 
             let is_ios = path.contains("hotspot-detect") || path.contains("captive.apple") || path.contains("apple.com");
 
             if is_probe && !is_ios {
-                let _ = socket
-                    .write_all(b"HTTP/1.0 302 Found\r\nLocation: http://192.168.4.1/\r\nConnection: close\r\nCache-Control: no-store\r\nContent-Length: 0\r\n\r\n")
-                    .await;
+                let mut resp: heapless::String<160> = heapless::String::new();
+                let _ = core::fmt::write(
+                    &mut resp,
+                    format_args!(
+                        "HTTP/1.0 302 Found\r\nLocation: http://{}/\r\nConnection: close\r\nCache-Control: no-store\r\nContent-Length: 0\r\n\r\n",
+                        cfg.gw_ip
+                    ),
+                );
+                let _ = socket.write_all(resp.as_bytes()).await;
                 esp_println::println!("http_server: wrote 302 redirect for captive probe");
             } else if is_ios {
                 let _ = socket
