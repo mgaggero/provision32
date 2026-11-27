@@ -809,7 +809,7 @@ async fn http_server(spawner: Spawner, stack: Stack<'static>, wifi_list: &'stati
 
 #[embassy_executor::task(pool_size = 8)]
 async fn http_worker(stack: Stack<'static>, wifi_list: &'static SharedWifiList, cfg: ProvisionConfig) {
-    loop {
+    'accept: loop {
         let mut rx_buf = alloc::vec![0u8; 1536];
         let mut tx_buf = alloc::vec![0u8; 2048];
         let mut socket = TcpSocket::new(stack, &mut rx_buf[..], &mut tx_buf[..]);
@@ -842,7 +842,7 @@ async fn http_worker(stack: Stack<'static>, wifi_list: &'static SharedWifiList, 
                 Err(e) => {
                     esp_println::println!("read error: {e:?}");
                     socket.close();
-                    return;
+                    continue 'accept;
                 }
             }
             if pos >= buf.len() {
@@ -851,8 +851,9 @@ async fn http_worker(stack: Stack<'static>, wifi_list: &'static SharedWifiList, 
         }
 
         if !headers_done {
+            esp_println::println!("http_worker: incomplete or oversized headers, closing");
             socket.close();
-            return;
+            continue;
         }
 
         if method_post {
